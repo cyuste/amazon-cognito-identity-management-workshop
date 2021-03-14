@@ -1,12 +1,15 @@
 import * as cdk from '@aws-cdk/core';
 import * as cognito from '@aws-cdk/aws-cognito';
-import { CfnIdentityPool } from '@aws-cdk/aws-cognito';
+
 
 export class CognitoCdkStack extends cdk.Stack {
+  public userPool: cognito.UserPool;
+  public userPoolClient: cognito.UserPoolClient;
+
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const pool = new cognito.UserPool(this, 'myuserpool', {
+    this.userPool = new cognito.UserPool(this, 'myuserpool', {
       userPoolName: 'WildRydes',
       selfSignUpEnabled: true,
       signInAliases: {
@@ -21,10 +24,10 @@ export class CognitoCdkStack extends cdk.Stack {
       },
       customAttributes: {
         'genre' : new cognito.StringAttribute({ minLen: 1, maxLen: 256, mutable: true }),
-      }
+      },
     });
 
-    const client = pool.addClient('wildrydes-web-app', {
+    this.userPoolClient = this.userPool.addClient('wildrydes-web-app', {
       idTokenValidity: cdk.Duration.minutes(60),
       accessTokenValidity: cdk.Duration.minutes(60),
       refreshTokenValidity: cdk.Duration.days(30),
@@ -34,26 +37,26 @@ export class CognitoCdkStack extends cdk.Stack {
       },
     });
 
-    const idPool = new CfnIdentityPool(this, 'idPool', {
+    const idPool = new cognito.CfnIdentityPool(this, 'idPool', {
       identityPoolName: 'wildrydes_identity_pool',
       allowUnauthenticatedIdentities: false,
       cognitoIdentityProviders: [
         {
-          clientId: client.userPoolClientId,    // The client ID for the Amazon Cognito user pool.
-          providerName: pool.userPoolProviderName
+          clientId: this.userPoolClient.userPoolClientId,    // The client ID for the Amazon Cognito user pool.
+          providerName: this.userPool.userPoolProviderName
         }
       ]
     });
 
     new cdk.CfnOutput(this, 'clientId-output', {
       exportName: `${this.stackName}-userPoolId`,
-      value: pool.userPoolId,
+      value: this.userPool.userPoolId,
       description: 'User Pool ID'
     });
 
     new cdk.CfnOutput(this, 'appclientId-output', {
       exportName: `${this.stackName}-appClientId`,
-      value: client.userPoolClientId,
+      value: this.userPoolClient.userPoolClientId,
       description: 'App client ID'
     });
 

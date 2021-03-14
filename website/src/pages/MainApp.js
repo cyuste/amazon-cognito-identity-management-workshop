@@ -48,8 +48,8 @@ class MainApp extends React.Component {
    * @return {Boolean} true if API is configured
    */
   hasApi() {
-    // const api = awsConfig.API.endpoints.filter(v => v.endpoint !== '');                                                   
-    // return (typeof api !== 'undefined');
+    const api = awsConfig.API.endpoints.filter(v => v.endpoint !== '');                                                   
+    return (typeof api !== 'undefined');
   }
 
   /**
@@ -59,7 +59,20 @@ class MainApp extends React.Component {
    * @param {Number} longitude
    */
   async getData(pin) {
-    console.error('Request a Ride is not implemented');
+    const apiRequest = {
+      body: {
+      PickupLocation: {
+          Longitude: pin.longitude,
+          Latitude: pin.latitude
+      }
+      },
+      headers: {
+      'Authorization': this.state.idToken,
+      'Content-Type': 'application/json'
+      }
+    };
+    console.log('API Request:', apiRequest);
+    return await API.post(apiName, apiPath, apiRequest);
   }
 
   /**
