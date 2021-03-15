@@ -7,11 +7,13 @@ import * as iam from '@aws-cdk/aws-iam';
 import { LambdaProxyIntegration } from '@aws-cdk/aws-apigatewayv2-integrations';
 import { HttpJwtAuthorizer } from '@aws-cdk/aws-apigatewayv2-authorizers';
 import { UserPool, UserPoolClient } from '@aws-cdk/aws-cognito';
+import { IdentityPool } from './constructs/identity-pool'
 
 
 export interface BackendCdkStackProps extends cdk.StackProps {
   userPool: UserPool;
   userPoolClient: UserPoolClient;
+  identityPool: IdentityPool;
 }
 export class BackendCdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props: BackendCdkStackProps) {
@@ -31,7 +33,6 @@ export class BackendCdkStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
       ],
     });
-
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -40,7 +41,6 @@ export class BackendCdkStack extends cdk.Stack {
       ],
       resources: [ db.tableArn ]
     }));
-      
     const reqUnicornLambda = new lambda.Function(this, 'reqUnicorns', {
       runtime: lambda.Runtime.NODEJS_10_X,
       handler: 'index.handler',
@@ -89,14 +89,80 @@ export class BackendCdkStack extends cdk.Stack {
       }),
     });
 
-    
-
-    new s3.Bucket(this,'profiles-pics-bucket');
+    const profilePicsBucket = new s3.Bucket(this,'profiles-pics-bucket',{
+      cors: [
+      {
+        allowedHeaders: ['*'],
+        allowedMethods: [ s3.HttpMethods.GET, s3.HttpMethods.HEAD, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.DELETE ],
+        allowedOrigins: ['*'],
+        exposedHeaders: ['x-amz-server-side-encryption', 'x-amz-request-id', 'x-amz-id-2', 'ETag'],
+        maxAge: 3600,
+      }]
+    });
+        
+    const policy = new iam.Policy(this, 'bucket-pol', {
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            "s3:PutObject",
+            "s3:GetObject",
+            "s3:GetObjectVersion",
+            "s3:DeleteObject",
+            "s3:DeleteObjectVersion"
+          ],
+          resources: [
+            `${profilePicsBucket.bucketArn}/private/`+'${aws:userid}/*'
+          ]
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            "s3:GetObject",
+            "s3:GetObjectVersion",
+          ],
+          resources: [
+            `${profilePicsBucket.bucketArn}/protected/*`
+          ]
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:DeleteObjectVersion"
+          ],
+          resources: [
+            `${profilePicsBucket.bucketArn}/protected/`+'${aws:userid}/*'
+          ]
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            "s3:PutObject",
+            "s3:GetObject",
+            "s3:GetObjectVersion",
+            "s3:DeleteObject",
+            "s3:DeleteObjectVersion"
+          ],
+          resources: [
+            `${profilePicsBucket.bucketArn}/public/*`
+          ]
+        }),
+      ]
+    });
+    policy.attachToRole(props.identityPool.authenticatedRole);
 
     new cdk.CfnOutput(this, 'api-endpoint-output', {
       exportName: `${this.stackName}-apiEndpoint`,
       value: api.apiEndpoint,
       description: 'API endpoint URL'
+    });
+
+    new cdk.CfnOutput(this, 'profile-pics-output', {
+      exportName: `${this.stackName}-profilePicsBucket`,
+      value: profilePicsBucket.bucketName,
+      description: 'Profile Pics bucket name'
     });
 
   }

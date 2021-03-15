@@ -8,5 +8,6 @@ const app = new cdk.App();
 const cognitoStack = new CognitoCdkStack(app, 'CognitoCdkStack');
 new BackendCdkStack(app, 'BackendCdkStack', {
   userPool: cognitoStack.userPool,
-  userPoolClient: cognitoStack.userPoolClient
+  userPoolClient: cognitoStack.userPoolClient,
+  identityPool: cognitoStack.identityPool
 });

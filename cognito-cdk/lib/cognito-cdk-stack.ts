@@ -1,10 +1,13 @@
 import * as cdk from '@aws-cdk/core';
 import * as cognito from '@aws-cdk/aws-cognito';
+import * as iam from '@aws-cdk/aws-iam';
+import { IdentityPool } from './constructs/identity-pool';
 
 
 export class CognitoCdkStack extends cdk.Stack {
   public userPool: cognito.UserPool;
   public userPoolClient: cognito.UserPoolClient;
+  public identityPool: IdentityPool;
 
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -37,15 +40,11 @@ export class CognitoCdkStack extends cdk.Stack {
       },
     });
 
-    const idPool = new cognito.CfnIdentityPool(this, 'idPool', {
+    this.identityPool = new IdentityPool(this, 'idPool', {
       identityPoolName: 'wildrydes_identity_pool',
       allowUnauthenticatedIdentities: false,
-      cognitoIdentityProviders: [
-        {
-          clientId: this.userPoolClient.userPoolClientId,    // The client ID for the Amazon Cognito user pool.
-          providerName: this.userPool.userPoolProviderName
-        }
-      ]
+      userPoolClient: this.userPoolClient,    // The client ID for the Amazon Cognito user pool.
+      userPool: this.userPool,
     });
 
     new cdk.CfnOutput(this, 'clientId-output', {
@@ -62,7 +61,7 @@ export class CognitoCdkStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'identityPoolId-output', {
       exportName: `${this.stackName}-identityPoolId`,
-      value: idPool.ref,
+      value: this.identityPool.identityPoolId,
       description: 'Identity pool ID'
     });
   }
